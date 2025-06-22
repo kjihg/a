@@ -63,3 +63,28 @@ def robust_portfolio_optimization(
         raise ValueError("Optimization failed to find a solution.")
     
     return w.value
+
+
+# Example mock data
+N = 10
+T = 252
+np.random.seed(42)
+
+returns = pd.DataFrame(np.random.randn(T, N) * 0.01)
+sharpe = pd.Series(np.random.uniform(0.5, 2.0, N))
+drawdown = pd.Series(np.random.uniform(0.1, 0.4, N))   # e.g., 10%–40%
+hit_rate = pd.Series(np.random.uniform(0.4, 0.65, N))  # e.g., 40%–65%
+
+# Run optimizer
+weights = robust_portfolio_optimization(
+    returns,
+    sharpe,
+    drawdown,
+    hit_rate,
+    lambda_dd=10.0,
+    gamma_sharpe_var=2.0
+)
+
+# Output weights
+pd.Series(weights, name="Optimal Weight").round(4)
+
