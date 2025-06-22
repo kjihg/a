@@ -1,0 +1,65 @@
+import numpy as np
+import pandas as pd
+import cvxpy as cp
+
+def robust_portfolio_optimization(
+    returns: pd.DataFrame,
+    sharpe: pd.Series,
+    drawdown: pd.Series,
+    hit_rate: pd.Series,
+    lambda_dd: float = 5.0,
+    gamma_sharpe_var: float = 1.0,
+    min_weight: float = 0.0,
+    max_weight: float = 1.0
+):
+    """
+    Robust portfolio optimizer that penalizes drawdown and unstable Sharpe.
+    
+    Parameters:
+        returns (DataFrame): T x N daily returns
+        sharpe (Series): N Sharpe Ratios
+        drawdown (Series): N max drawdowns (positive values)
+        hit_rate (Series): N hit rates (0 to 1)
+        lambda_dd (float): penalty multiplier on drawdown
+        gamma_sharpe_var (float): penalization of unstable Sharpe ratios
+        min_weight (float): minimum model weight
+        max_weight (float): maximum model weight
+        
+    Returns:
+        weights (ndarray): optimized weights for each model
+    """
+    
+    # Basic quantities
+    mu_hat = returns.mean().values           # expected returns
+    Sigma = np.cov(returns.T)                # empirical covariance
+    N = returns.shape[1]                     # number of models
+
+    # Optional Sharpe variability penalty (mocked here as inverse hit rate)
+    # More robustly, you might calculate std over rolling Sharpe windows
+    sharpe_var_penalty = 1 - hit_rate.values  # proxy for instability
+
+    # Define variables
+    w = cp.Variable(N)
+
+    # Objective: Maximize expected return minus penalties
+    objective = cp.Maximize(
+        mu_hat @ w
+        - lambda_dd * drawdown.values @ w
+        - gamma_sharpe_var * sharpe_var_penalty @ w
+    )
+
+    # Constraints
+    constraints = [
+        cp.sum(w) == 1,                  # Fully invested
+        w >= min_weight,                # No negative weights
+        w <= max_weight,                # Optional: no over-concentration
+    ]
+
+    # Solve the problem
+    problem = cp.Problem(objective, constraints)
+    problem.solve()
+
+    if w.value is None:
+        raise ValueError("Optimization failed to find a solution.")
+    
+    return w.value
